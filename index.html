@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="mask-icon" href="favicon.svg" color="#7aa2f7">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3f5fa" media="(prefers-color-scheme: light)">
+<title>OMP Status Line Creator</title>
+<style>
+  :root{                                   /* Catppuccin Frappé (https://catppuccin.com) */
+    --bg:#303446; --panel:#292c3c; --panel2:#414559; --line:#51576d; --fg:#c6d0f5;
+    --dim:#a5adce; --accent:#8caaee; --accent-fg:#232634; --ok:#a6d189; --warn:#e5c890; --err:#e78284;
+    --sel-bg:#464d63; --over-bg:#3b4053; --term-bg:#232634; --term-fg:#c6d0f5;
+    --code-bg:#232634; --code-fg:#c6d0f5;
+    --used-left-bg:rgba(140,170,238,.15); --used-right-bg:rgba(166,209,137,.15);
+    --used-both-bg:rgba(229,200,144,.15);
+    --font-mono:"JetBrainsMono Nerd Font","JetBrainsMonoNL Nerd Font","MesloLGS NF","Hack Nerd Font",
+                "FiraCode Nerd Font","SauceCodePro Nerd Font",ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  :root[data-theme="light"]{
+    --bg:#f3f5fa; --panel:#ffffff; --panel2:#e9edf5; --line:#ccd3e0; --fg:#1a1f2b;
+    --dim:#5c6675; --accent:#2f5fd0; --accent-fg:#ffffff; --ok:#2b8a3e; --warn:#a56a00; --err:#c02b3a;
+    --sel-bg:#e3ebfd; --over-bg:#eef3ff; --code-bg:#ffffff; --code-fg:#1a1f2b;
+    --used-left-bg:#e4eeff; --used-right-bg:#e3f6e8; --used-both-bg:#fdf2df;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  header{display:flex;gap:14px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  h1{font-size:15px;margin:0;font-weight:600}
+  h1 small{color:var(--dim);font-weight:400;margin-left:8px}
+  .grow{flex:1}
+  main{display:grid;grid-template-columns:260px 1fr 300px;gap:0;height:calc(100vh - 54px)}
+  section{border-right:1px solid var(--line);overflow:auto;padding:12px}
+  section:last-child{border-right:0}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 8px}
+  button,select,input[type=text],textarea{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+    border-radius:6px;padding:5px 8px;font:inherit}
+  button{cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600;
+                 padding:7px 16px;font-size:13px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+  button.primary:hover{filter:brightness(1.08)}
+  button.tiny{padding:1px 6px;font-size:11px;line-height:1.5}
+  label{display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+  label span{color:var(--dim);flex:1}
+  .seg{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);
+       border-radius:6px;padding:4px 6px;margin-bottom:4px;cursor:pointer;font-size:13px}
+  .seg:hover{border-color:var(--accent)}
+  .seg.sel{border-color:var(--accent);background:var(--sel-bg)}
+  .seg .grip{color:var(--dim);cursor:grab;font:12px var(--font-mono)}
+  .seg .name{flex:1;font-family:var(--font-mono);font-size:12px}
+  .seg .tag{font-size:10px;color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:0 3px}
+  .drop{border:1px dashed var(--line);border-radius:8px;padding:6px;min-height:200px}
+  .lists{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+  .lists .col{min-width:0}
+  .lists h2{display:flex;gap:6px;align-items:center}
+  .drop.over{border-color:var(--accent);background:var(--over-bg)}
+  .seg.dragging{opacity:.45;border-style:dashed}
+  .slot{height:26px;margin-bottom:4px;border:1px dashed var(--accent);border-radius:6px;
+        background:var(--sel-bg);color:var(--dim);font-size:11px;display:flex;align-items:center;
+        justify-content:center;letter-spacing:.04em}
+  .catalog{display:flex;flex-wrap:wrap;gap:4px}
+  #presets{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+  #presets button{width:100%;text-align:center}
+  button.active{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
+  #themeSwitch{display:flex;gap:4px;margin-right:2px}
+  #symBadge{margin-right:6px}
+  .catalog .seg{margin:0}
+  .cat-left{border-color:var(--accent);background:var(--used-left-bg)}
+  .cat-right{border-color:var(--ok);background:var(--used-right-bg)}
+  .cat-both{border-color:var(--warn);background:var(--used-both-bg)}
+  .badge{font-family:var(--font-mono);font-size:10px;letter-spacing:-.02em}
+  .sample{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+          font-family:var(--font-mono);font-size:11px;color:var(--dim);opacity:.85;padding-left:2px}
+  .cat-left .badge{color:var(--accent)}
+  .cat-right .badge{color:var(--ok)}
+  .cat-both .badge{color:var(--warn)}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:6px 0 8px}
+  .legend i{font-style:normal;font-family:var(--font-mono)}
+  .divider{border:0;border-top:1px solid var(--line);margin:16px 0 12px}
+  .catrow{max-height:none;overflow:auto;margin-bottom:10px}
+  .preview{background:var(--term-bg);color:var(--term-fg);border:1px solid var(--line);border-radius:8px;padding:10px;
+           font-family:var(--font-mono);font-size:13px;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+  .pv-dim{color:#4b5266}
+  .pv-line{white-space:pre-wrap}
+  .note{color:var(--dim);font-size:12px;margin:8px 0}
+  .warn{color:var(--warn);font-size:12px}
+  .err{color:var(--err);font-size:12px}
+  pre{background:var(--code-bg);color:var(--code-fg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;
+      font-family:var(--font-mono);font-size:12px;max-height:34vh;margin:6px 0}
+  textarea{width:100%;min-height:90px;font-family:var(--font-mono);font-size:12px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+  .tabs{display:flex;gap:6px;margin-bottom:8px}
+  .pill{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
+  .flexcol{display:flex;flex-direction:column;gap:8px}
+  details{margin-top:6px}
+  summary{cursor:pointer;color:var(--dim);font-size:12px}
+  /* tiroir Export / Import */
+  #drawer{position:fixed;left:15%;right:15%;bottom:0;z-index:20;display:flex;flex-direction:column;
+          max-height:80vh;background:var(--panel);border:1px solid var(--line);border-bottom:0;
+          border-radius:14px 14px 0 0;box-shadow:0 -14px 44px rgba(0,0,0,.45);
+          transform:translateY(101%);transition:transform .18s ease}
+  #drawer.open{transform:none}
+  .drawer-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .drawer-body{padding:12px 14px 16px;overflow:auto}
+  #backdrop{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.35);
+            -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+            opacity:0;visibility:hidden;transition:opacity .18s ease, visibility .18s}
+  #backdrop.show{opacity:1;visibility:visible}
+  /* ── responsive ──────────────────────────────────────────────────────── */
+  @media (max-width: 1240px){ main{grid-template-columns:220px 1fr 264px} }
+  @media (max-width: 1040px){
+    main{grid-template-columns:1fr;height:auto}
+    section{border-right:0;border-bottom:1px solid var(--line)}
+    .catrow{max-height:40vh}
+    .drawer-body{padding-bottom:20px}
+  }
+  @media (max-width: 780px){
+    header{gap:8px;padding:10px 12px}
+    header h1{font-size:14px}
+    #symBadge{display:none}
+    .lists{grid-template-columns:1fr}
+    #drawer{left:0;right:0;border-radius:12px 12px 0 0;max-height:88vh}
+    .preview{font-size:12px}
+    .drop{min-height:140px}
+  }
+  @media (max-width: 520px){
+    .catalog .seg{width:100%}
+    #presets{grid-template-columns:1fr}
+    .legend{font-size:10px;gap:6px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>OMP Status Line Creator <small id="ompBuild">omp ? — segments, options, aperçu, export</small></h1>
+  <span class="grow"></span>
+  <span class="pill" id="versionBadge" title="Version de l'app — synchronisée avec le VERSION du hub">v…</span>
+  <span class="pill" id="symBadge">symbols: nerd</span>
+  <div id="themeSwitch">
+    <button class="tiny" data-theme="auto">Auto</button>
+    <button class="tiny" data-theme="light" title="Thème clair">Clair</button>
+    <button class="tiny" data-theme="dark" title="Catppuccin Frappé">Sombre</button>
+  </div>
+  <button id="btnImportOpen" class="tiny" title="Importer une config existante">Importer</button>
+  <button id="btnExport" class="primary" title="Exporter la config (⌘E)">Exporter ▾</button>
+  <button id="btnReset" class="tiny">Réinitialiser</button>
+</header>
+
+<main>
+  <!-- ── gauche : catalogue ───────────────────────────────────────── -->
+  <section>
+    <h2>Catalogue <span class="pill" id="catCount">26/26</span></h2>
+    <input type="text" id="search" placeholder="filtrer…" style="width:100%;margin-bottom:6px">
+    <div class="legend">
+      <span><i>◀</i> gauche</span><span><i>▶</i> droite</span><span><i>◀▶</i> les deux</span>
+      <span><i>×2</i> présent deux fois</span>
+    </div>
+    <label class="tiny" style="font-size:12px;margin:0 0 8px"><input type="checkbox" id="hideUsed">
+      masquer les segments déjà utilisés</label>
+    <div class="catrow" id="catalog"></div>
+  </section>
+
+  <!-- ── centre : listes + aperçu ─────────────────────────────────── -->
+  <section>
+    <h2>Aperçu TUI</h2>
+    <div class="preview" id="preview"></div>
+    <p class="note" id="previewNote"></p>
+
+    <div class="lists">
+      <div class="col">
+        <h2>◀ leftSegments <span class="pill" id="nLeft">0</span></h2>
+        <div class="drop" id="left" data-side="left"></div>
+      </div>
+      <div class="col">
+        <h2 style="justify-content:flex-end">rightSegments ▶ <span class="pill" id="nRight">0</span></h2>
+        <div class="drop" id="right" data-side="right"></div>
+      </div>
+    </div>
+    <p class="note" id="dndHint">Glisse une tuile pour la réordonner : un repère <b>« déposer ici »</b>
+      apparaît à la position d'arrivée ; dépose-la dans l'autre colonne pour changer de bord.
+      <code>Alt</code>+<code>↑</code>/<code>↓</code> déplace la tuile sélectionnée.</p>
+    <p class="warn" id="trap" hidden>⚠️ <code>leftSegments</code>/<code>rightSegments</code> vide = rien ne s'affiche
+      (le défaut du schéma est <code>[]</code>, pas « hérite du preset »).</p>
+  </section>
+
+  <!-- ── droite : presets, réglages, options, import/export ───────── -->
+  <section>
+    <h2>Presets</h2>
+    <div id="presets"></div>
+    <p class="note" id="presetNote"></p>
+
+    <hr class="divider">
+    <h2>Réglages</h2>
+    <div class="flexcol">
+      <label><span>separator <em title="sans effet en mode plain">ⓘ</em></span><select id="separator">
+        <option>powerline</option><option>powerline-thin</option><option>slash</option><option>pipe</option>
+        <option>block</option><option>none</option><option>ascii</option></select></label>
+      <label><span>contextLine</span><select id="contextLine"><option>off</option><option>percentage</option>
+        <option>annotated</option><option>embedded</option></select></label>
+      <label><span>sessionAccent</span><input type="checkbox" id="sessionAccent"></label>
+      <label><span>transparent</span><input type="checkbox" id="transparent"></label>
+      <label><span>showHookStatus</span><input type="checkbox" id="showHookStatus"></label>
+      <label><span>aperçu : données</span><select id="samples"><option value="rich">exemple riche</option>
+        <option value="real">ma session type</option><option value="empty">session vide</option></select></label>
+      <label><span>aperçu : glyphes</span><select id="symPreset"><option>nerd</option><option>unicode</option>
+        <option>ascii</option></select></label>
+    </div>
+
+    <hr class="divider">
+    <h2>Options du segment</h2>
+    <div id="options"><p class="note">Sélectionne un segment (dans une liste ou le catalogue).</p></div>
+  </section>
+</main>
+
+<div id="backdrop" aria-hidden="true"></div>
+<aside id="drawer" aria-label="Export ou import">
+  <div class="drawer-head">
+    <h2 style="margin:0" id="drawerTitle">Exporter la config</h2>
+    <span class="grow"></span>
+    <button id="btnDrawerClose" class="tiny">Fermer ✕</button>
+  </div>
+  <div class="drawer-body">
+    <div id="viewExport">
+      <div class="tabs">
+        <button data-tab="yaml" class="primary tiny">YAML</button>
+        <button data-tab="cmd" class="tiny">Commandes</button>
+        <button data-tab="json" class="tiny">JSON</button>
+      </div>
+      <pre id="export"></pre>
+      <div class="row">
+        <button id="btnCopy" class="primary">Copier la config</button>
+        <button id="btnDownload" class="tiny">Télécharger config.yml</button>
+      </div>
+
+      <details>
+        <summary>Ce que l'aperçu ne peut pas montrer</summary>
+        <ul class="note" style="padding-left:18px">
+          <li><b>separator</b> : appliqué seulement en mode <code>box</code>/<code>band</code>. En mode
+            <code>plain-*</code> (ton affichage), le séparateur est <code>·</code> en dur.</li>
+          <li><b>usage</b> : le libellé du plan (ex. « OpenCode Go ») est toujours rendu — pas d'option.</li>
+          <li>Couleurs : issues du thème (<code>titanium</code>), schématisées ici.</li>
+          <li>Un segment sans données se masque tout seul (git hors repo, pr sans PR, subagents à 0…).</li>
+        </ul>
+      </details>
+    </div>
+
+    <div id="viewImport" hidden>
+      <p class="note" style="margin-top:0">Colle un bloc <code>statusLine:</code> (YAML), du JSON, ou la sortie
+        de <code>omp config list | grep statusLine</code>.</p>
+      <textarea id="importText" placeholder="statusLine.preset = custom&#10;statusLine.leftSegments = [&quot;pi&quot;,&quot;model&quot;]&#10;…"></textarea>
+      <div class="row">
+        <button id="btnImport" class="primary">Importer</button>
+        <button id="btnMine" class="tiny">Ma config actuelle</button>
+      </div>
+      <p class="err" id="importErr"></p>
+    </div>
+  </div>
+</aside>
+
+<script src="symbols.js"></script>
+<script>
+"use strict";
+const APP_VERSION = "2026.09.24";   // synchronisé par bump.py (source de vérité : VERSION du hub)
+const SYM = window.OMP_SYMBOLS;
+const SEGLIST = ("pi status model mode path git pr subagents session session_name collab vim hostname " +
+  "token_in token_out token_total token_rate cache_read cache_write cache_hit cost context_pct " +
+  "context_total time_spent time usage").split(" ");
+
+// ── métadonnées : description + rendu d'exemple (icône, valeur) ──────────────
+// always = visible même session vide · real = présent dans ta session type ·
+// sans flag = seulement en aperçu « riche »
+const SEG = {
+  pi:{d:"Icône de marque ; pendant un turn : spinner + durée ; subagent focalisé : son id", i:"omp", v:"", always:1, side:"left"},
+  status:{d:"Statuts publiés par les extensions (ctx.ui.setStatus)", i:null, v:"build ok", side:"left"},
+  model:{d:"Modèle courant (+ niveau de réflexion, icônes fast/advisor)", i:"model", v:"opencode-go/glm-5.3-flash (2x)", always:1, side:"left",
+    opts:{showThinkingLevel:{t:"bool",def:true}}},
+  mode:{d:"Badge Plan / Prewalk / Goal / Vibe / Loop", i:"plan", v:"Plan", side:"left"},
+  path:{d:"Répertoire courant (worktree, dossier scratch)", i:"folder", v:"~/Documents/MODAL", always:1, side:"left",
+    opts:{abbreviate:{t:"bool",def:true},maxLength:{t:"num",def:40},stripWorkPrefix:{t:"bool",def:true}}},
+  git:{d:"Branche + staged/unstaged/untracked", i:"branch", v:"main ●2 ✚1 ?3", side:"left",
+    opts:{showBranch:{t:"bool",def:true},showStaged:{t:"bool",def:true},showUnstaged:{t:"bool",def:true},showUntracked:{t:"bool",def:true}}},
+  pr:{d:"Numéro de PR (lien hypertexte)", i:"pr", v:"#412", side:"left"},
+  subagents:{d:"Nombre de subagents vivants", i:"agents", v:"2", side:"left"},
+  session:{d:"Id de session (8 caractères)", i:"session", v:"01a09ee5", always:1, side:"left"},
+  session_name:{d:"Titre de la session (source de la teinte d'accent)", i:null, v:"Fix failing opencode plugins", real:1, side:"right"},
+  collab:{d:"Participants d'une session collaborative", i:null, v:"⇄ collab:3", side:"left"},
+  vim:{d:"Mode vim + lignes sélectionnées", i:"vimNormal", v:"NORMAL", side:"left"},
+  hostname:{d:"Nom de la machine", i:null, v:"macbook-air6", always:1, side:"left"},
+  token_in:{d:"Tokens d'entrée frais (cumul session)", i:"input", v:"118K", real:1, side:"right"},
+  token_out:{d:"Tokens générés (cumul session)", i:"output", v:"85K", real:1, side:"right"},
+  token_total:{d:"Somme entrée+sortie+cache write+orchestration", i:"tokens", v:"203K", side:"right"},
+  token_rate:{d:"Débit de génération (tok/s)", i:"throughput", v:"166.0 tok/s", real:1, side:"right"},
+  cache_read:{d:"Tokens relus depuis le cache prompt", i:"cache", v:"11M", real:1, side:"right"},
+  cache_write:{d:"Tokens écrits dans le cache prompt", i:"cache", v:"412K", side:"right"},
+  cache_hit:{d:"cacheRead / (cacheRead + cacheWrite + input), en %", i:"cache", v:"98.90%", real:1, side:"right"},
+  cost:{d:"Coût session (+ ↑/↓ peak, ★ premium, + advisor)", i:"cost", v:"$0.10", real:1, side:"right"},
+  context_pct:{d:"Remplissage de la fenêtre (+ icône auto-compaction)", i:"context", v:"19.2%/1M", auto:1, always:1, side:"right"},
+  context_total:{d:"Taille de la fenêtre de contexte", i:"context", v:"1M", side:"right"},
+  time_spent:{d:"Temps actif cumulé (hors attente)", i:"time", v:"15m1s", real:1, side:"right"},
+  time:{d:"Horloge locale", i:"time", v:"9:34:02", always:1, side:"right",
+    opts:{format:{t:"enum",vals:["24h","12h"],def:"24h"},showSeconds:{t:"bool",def:false}}},
+  usage:{d:"Fenêtres de quota d'abonnement 5h/1d/7d/mois (+ reset)", i:"time",
+    v:"OpenCode Go · 5h 3% (4h 7m) · 7d 1% (6d 16h) · mo 95% (17d 5h)", real:1, side:"right"}
+};
+
+// ── presets exacts (status-line/presets.ts) + les sélections PK ─────────────
+const PRESETS = {
+  // Sélections PK : listes explicites, donc sérialisées en `preset: custom`
+  // (un nom de preset local n'existe pas côté OMP — getPreset() retomberait sur `default`).
+  customPK1:{left:["pi","mode","model","path","session"],
+      right:["token_rate","cost","token_in","token_out","cache_write","context_pct","time_spent"],
+      sep:"powerline", ompPreset:"custom",
+      opts:{model:{showThinkingLevel:true}, path:{abbreviate:true,maxLength:60}},
+      contextLine:"embedded", sessionAccent:true, transparent:false, showHookStatus:true},
+  customPK2:{left:["pi","mode","model","usage"],
+      right:["status","token_rate","token_total","cost","token_in","token_out","cache_write",
+             "context_pct","session","time_spent"],
+      sep:"powerline", ompPreset:"custom",
+      opts:{model:{showThinkingLevel:true}, path:{abbreviate:true,maxLength:60}},
+      contextLine:"embedded", sessionAccent:true, transparent:false, showHookStatus:true},
+  default:{left:["pi","vim","model","mode","collab","path","git","pr","context_pct","cost"],right:["session_name"],
+    sep:"powerline-thin",opts:{model:{showThinkingLevel:true},path:{abbreviate:true,maxLength:40,stripWorkPrefix:true},
+    git:{showBranch:true,showStaged:true,showUnstaged:true,showUntracked:true}}},
+  minimal:{left:["vim","path","git"],right:["session_name","mode","context_pct"],sep:"slash",
+    opts:{path:{abbreviate:true,maxLength:30},git:{showBranch:true,showStaged:false,showUnstaged:false,showUntracked:false}}},
+  compact:{left:["vim","model","mode","git","pr"],right:["session_name","cost","context_pct"],sep:"powerline-thin",
+    opts:{model:{showThinkingLevel:false},git:{showBranch:true,showStaged:true,showUnstaged:true,showUntracked:false}}},
+  full:{left:["pi","vim","hostname","model","mode","path","git","pr","subagents"],
+    right:["session_name","cache_hit","token_in","token_out","token_rate","cache_read","cost","context_pct","time_spent","time"],
+    sep:"powerline",opts:{model:{showThinkingLevel:true},path:{abbreviate:true,maxLength:50},
+    git:{showBranch:true,showStaged:true,showUnstaged:true,showUntracked:true},time:{format:"24h",showSeconds:false}}},
+  nerd:{left:["pi","vim","hostname","model","mode","path","git","pr","session","subagents"],
+    right:["session_name","token_in","token_out","cache_read","cache_write","token_rate","cost","context_pct",
+      "context_total","time_spent","time"],
+    sep:"powerline",opts:{model:{showThinkingLevel:true},path:{abbreviate:true,maxLength:60},
+    git:{showBranch:true,showStaged:true,showUnstaged:true,showUntracked:true},time:{format:"24h",showSeconds:true}}},
+  ascii:{left:["vim","model","mode","path","git","pr"],right:["session_name","token_total","cost","context_pct"],
+    sep:"ascii",opts:{model:{showThinkingLevel:true},path:{abbreviate:true,maxLength:40},
+    git:{showBranch:true,showStaged:true,showUnstaged:true,showUntracked:true}}},
+  custom:{left:["vim","model","mode","path","git","pr"],right:["session_name","token_total","cost","context_pct"],
+    sep:"powerline-thin",opts:{}}
+};
+
+// config actuelle de l'utilisateur (état de départ)
+const MINE = {preset:"custom",separator:"ascii",contextLine:"embedded",sessionAccent:true,transparent:false,
+  showHookStatus:true,
+  left:["pi","vim","hostname","mode","path","git","pr","model","session","subagents"],
+  right:["session_name","token_in","token_out","cache_read","cache_write","cache_hit","token_rate","cost",
+    "context_pct","time_spent","time","usage"],
+  opts:{model:{showThinkingLevel:true},path:{abbreviate:true,maxLength:60,stripWorkPrefix:true},
+    git:{showBranch:true,showStaged:true,showUnstaged:true,showUntracked:true},
+    time:{format:"24h",showSeconds:true}}};
+
+// ── état ────────────────────────────────────────────────────────────────────
+const LS = "omp-statusline-creator";
+let S = load() || structuredClone(MINE);
+let selected = null, tab = "yaml", symbols = document.getElementById("symPreset").value;
+
+function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch{ return null; } }
+function save(){ localStorage.setItem(LS, JSON.stringify(S)); }
+function defOpts(id){
+  const o = {}; const meta = SEG[id]?.opts || {};
+  for (const [k,v] of Object.entries(meta)) o[k] = v.def;
+  return o;
+}
+function optsFor(id){ return S.opts[id] || defOpts(id); }
+
+// ── aperçu ──────────────────────────────────────────────────────────────────
+function icon(name){ return (name && SYM[symbols]?.["icon."+name]) || ""; }
+// Rendu d'exemple d'un segment : icône du preset courant + valeur d'échantillon.
+// respectMode=false ignore le jeu de données de l'aperçu (utilisé par le catalogue).
+function segRender(id, { respectMode = true } = {}){
+  const m = SEG[id]; if (!m) return null;
+  const mode = document.getElementById("samples").value;      // rich | real | empty
+  if (respectMode){
+    if (mode === "empty" && !m.always) return null;
+    if (mode === "real" && !(m.always || m.real)) return null;
+  }
+  if (id === "pi") return icon("omp");
+  const g = icon(m.i);
+  let s = g ? g + " " + m.v : m.v;
+  if (id === "time") s = (g ? g + " " : "") + (optsFor("time").showSeconds ? "9:34:02" : "9:34");
+  if (m.auto) s += " " + icon("auto");
+  return s;
+}
+function segText(id){ return segRender(id); }
+function renderPreview(){
+  const join = " · ";                       // mode plain : codé en dur
+  const L = S.left.map(segText).filter(Boolean);
+  const R = S.right.map(segText).filter(Boolean);
+  const right = R.join(join), left = L.join(join);
+  const W = 130;
+  const top = right
+    ? "─".repeat(Math.max(2, W - right.length - 3)) + " " + right + " ─"
+    : "─".repeat(W);
+  const out = [
+    `<span class="pv-dim">${top}</span>`,
+    `<span class="pv-dim">❯</span>`,
+    `<span class="pv-dim">${"─".repeat(W)}</span>`,
+    left ? " " + left : `<span class="pv-dim">…</span>`
+  ].join("\n");
+  document.getElementById("preview").innerHTML = out;
+  const shown = L.length + R.length, total = S.left.length + S.right.length;
+  document.getElementById("previewNote").textContent =
+    `${shown}/${total} segments visibles — séparateur « · » (mode plain, hardcodé). ` +
+    `Le réglage separator ne s'applique qu'en mode box/band.`;
+}
+
+// ── listes ──────────────────────────────────────────────────────────────────
+function segRow(id, side, idx){
+  const m = SEG[id] || {d:"segment inconnu", v:""};
+  const opts = Object.keys(m.opts || {}).length;
+  const sample = segRender(id, { respectMode: false }) ?? "";
+  return `<div class="seg${selected===side+":"+idx?" sel":""}" draggable="true" data-side="${side}" data-idx="${idx}">
+    <span class="grip">⠿</span><span class="name">${id}</span><span class="sample">${sample}</span>
+    ${opts ? `<span class="tag">${opts} opt</span>` : ""}
+    <button class="tiny" data-move="${side}:${idx}" title="basculer gauche/droite">⇄</button>
+    <button class="tiny" data-del="${side}:${idx}" title="retirer">×</button></div>`;
+}
+function renderLists(){
+  for (const side of ["left","right"]){
+    document.getElementById(side).innerHTML =
+      S[side].map((id,i)=>segRow(id,side,i)).join("") ||
+      `<p class="note">vide</p>`;
+  }
+  document.getElementById("nLeft").textContent = S.left.length;
+  document.getElementById("nRight").textContent = S.right.length;
+  document.getElementById("trap").hidden = !(S.left.length === 0 && S.right.length === 0);
+  wireDnD();
+}
+function renderCatalog(){
+  const q = document.getElementById("search").value.toLowerCase();
+  const hideUsed = document.getElementById("hideUsed").checked;
+  const rows = SEGLIST.map(id => ({
+    id,
+    l: S.left.filter(x => x === id).length,
+    r: S.right.filter(x => x === id).length
+  })).filter(({ id, l, r }) => {
+    if (hideUsed && (l || r)) return false;
+    if (!q) return true;
+    return id.includes(q) || (SEG[id]?.d || "").toLowerCase().includes(q);
+  });
+  document.getElementById("catCount").textContent = `${rows.length}/${SEGLIST.length}`;
+  document.getElementById("catalog").innerHTML = rows.map(({ id, l, r }) => {
+    const cls = l && r ? "both" : l ? "left" : r ? "right" : "none";
+    const badge = (l ? `◀${l > 1 ? "×" + l : ""}` : "") + (r ? `▶${r > 1 ? "×" + r : ""}` : "");
+    const opts = Object.keys(SEG[id]?.opts || {}).length;
+    const sides = [l && `gauche ×${l}`, r && `droite ×${r}`].filter(Boolean).join(", ");
+    const sample = segRender(id, { respectMode: false }) ?? "";
+    return `<div class="seg cat-${cls}" data-add="${id}" title="${SEG[id]?.d || ""}${sides ? ` — utilisé : ${sides}` : " — non utilisé"}&#10;aperçu : ${sample}">
+      <span class="name">${id}</span><span class="sample">${sample}</span>${badge ? `<span class="badge">${badge}</span>` : ""}
+      ${opts ? `<span class="tag">opt</span>` : ""}</div>`;
+  }).join("") || `<p class="note">aucun segment ne correspond</p>`;
+}
+function renderPresets(){
+  document.getElementById("presets").innerHTML = Object.keys(PRESETS)
+    .map(p=>`<button class="tiny${p===S.preset?" active":""}" data-preset="${p}">${p}</button>`).join("");
+  document.getElementById("presetNote").textContent = S.preset === "custom"
+    ? "preset: custom — les listes ci-dessous sont écrites dans config.yml et appliquées par OMP."
+    : `preset: ${S.preset} — OMP utilise les listes de ce preset et ignore celles du fichier ; ` +
+      "toute modification ci-dessous bascule sur custom.";
+}
+
+// ── options ─────────────────────────────────────────────────────────────────
+function renderOptions(){
+  const box = document.getElementById("options");
+  if (!selected){ box.innerHTML = `<p class="note">Sélectionne un segment (dans une liste ou le catalogue).</p>`; return; }
+  const id = selected.split(":")[0] === "add" ? selected.split(":")[1] : S[selected.split(":")[0]][+selected.split(":")[1]];
+  const m = SEG[id];
+  if (!m){ box.innerHTML = `<p class="err">Segment inconnu : ${id}</p>`; return; }
+  const keys = Object.keys(m.opts || {});
+  if (!keys.length){ box.innerHTML = `<h2 style="margin:0 0 6px">${id}</h2>
+    <p class="note">${m.d}</p><p class="note">Aucune option — les 22 segments hors <code>model</code>,
+    <code>path</code>, <code>git</code>, <code>time</code> n'en lisent aucune.</p>`; return; }
+  const cur = optsFor(id);
+  box.innerHTML = `<h2 style="margin:0 0 6px">${id}</h2><p class="note">${m.d}</p>` + keys.map(k=>{
+    const spec = m.opts[k], val = cur[k] ?? spec.def;
+    if (spec.t === "bool") return `<label><span>${k}</span>
+      <input type="checkbox" data-opt="${id}:${k}" ${val?"checked":""}></label>`;
+    if (spec.t === "enum") return `<label><span>${k}</span>
+      <select data-opt="${id}:${k}">${spec.vals.map(v=>`<option ${v===val?"selected":""}>${v}</option>`).join("")}</select></label>`;
+    return `<label><span>${k}</span><input type="text" data-opt="${id}:${k}" value="${val}" size="6"></label>`;
+  }).join("") + `<p class="note">défauts OMP : ${keys.map(k=>`${k}=${m.opts[k].def}`).join(", ")}</p>`;
+}
+
+// ── export ──────────────────────────────────────────────────────────────────
+function yamlOpts(){
+  // Les options explicitement portées par l'état (preset, import, édition) sont toujours
+  // exportées, même si le segment n'est pas dans les listes — sinon un bloc fourni serait
+  // silencieusement amputé. On complète avec les segments à options présents dans les listes.
+  const need = {};
+  for (const id of Object.keys(S.opts || {})) if (SEG[id]?.opts) need[id] = optsFor(id);
+  for (const id of [...new Set([...S.left, ...S.right])]) if (SEG[id]?.opts) need[id] = optsFor(id);
+  return need;
+}
+function toYaml(){
+  const o = yamlOpts();
+  const list = (arr)=> arr.map(x=>`    - ${x}`).join("\n");
+  let s = "statusLine:\n";
+  s += `  preset: ${S.preset}\n  separator: ${S.separator}\n  contextLine: ${S.contextLine}\n`;
+  s += `  sessionAccent: ${S.sessionAccent}\n  transparent: ${S.transparent}\n  showHookStatus: ${S.showHookStatus}\n`;
+  s += `  leftSegments:\n${list(S.left)}\n  rightSegments:\n${list(S.right)}\n`;
+  s += "  segmentOptions:\n";
+  for (const [id, kv] of Object.entries(o)){
+    s += `    ${id}:\n`;
+    for (const [k,v] of Object.entries(kv)) s += `      ${k}: ${typeof v === "string" ? v : v}\n`;
+  }
+  return s;
+}
+function toCommands(){
+  const o = yamlOpts();
+  const q = (arr)=> "'" + JSON.stringify(arr) + "'";
+  return ["omp config set statusLine.preset " + S.preset,
+    "omp config set statusLine.separator " + S.separator,
+    "omp config set statusLine.contextLine " + S.contextLine,
+    "omp config set statusLine.sessionAccent " + S.sessionAccent,
+    "omp config set statusLine.transparent " + S.transparent,
+    "omp config set statusLine.showHookStatus " + S.showHookStatus,
+    "omp config set statusLine.leftSegments " + q(S.left),
+    "omp config set statusLine.rightSegments " + q(S.right),
+    "omp config set statusLine.segmentOptions " + "'" + JSON.stringify(o) + "'"].join("\n");
+}
+function toJson(){ return JSON.stringify({preset:S.preset,separator:S.separator,contextLine:S.contextLine,
+  sessionAccent:S.sessionAccent,transparent:S.transparent,showHookStatus:S.showHookStatus,
+  leftSegments:S.left,rightSegments:S.right,segmentOptions:yamlOpts()}, null, 2); }
+function renderExport(){
+  document.getElementById("export").textContent = tab === "cmd" ? toCommands() : tab === "json" ? toJson() : toYaml();
+}
+function setTab(name){
+  tab = name;
+  document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("primary", b.dataset.tab === name));
+  renderExport();
+}
+
+// ── tiroir Export / Import ──────────────────────────────────────────────────
+const drawer = document.getElementById("drawer");
+const backdrop = document.getElementById("backdrop");
+function openDrawer(mode = "export"){
+  const isImport = mode === "import";
+  document.getElementById("drawerTitle").textContent = isImport ? "Importer une config" : "Exporter la config";
+  document.getElementById("viewExport").hidden = isImport;
+  document.getElementById("viewImport").hidden = !isImport;
+  drawer.classList.add("open"); backdrop.classList.add("show"); backdrop.setAttribute("aria-hidden", "false");
+  if (isImport){ const ta = document.getElementById("importText"); ta.focus(); }
+}
+function closeDrawer(){
+  drawer.classList.remove("open"); backdrop.classList.remove("show"); backdrop.setAttribute("aria-hidden", "true");
+}
+document.getElementById("btnExport").onclick = () => openDrawer("export");
+document.getElementById("btnImportOpen").onclick = () => openDrawer("import");
+document.getElementById("btnDrawerClose").onclick = closeDrawer;
+backdrop.onclick = closeDrawer;
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeDrawer();
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "e"){ e.preventDefault(); openDrawer("export"); }
+  // Alt+↑/↓ : réordonne la tuile sélectionnée dans sa colonne
+  if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && /^(left|right):\d+$/.test(selected || "")){
+    e.preventDefault();
+    const [side, idxStr] = selected.split(":");
+    const i = +idxStr, j = e.key === "ArrowUp" ? i - 1 : i + 1;
+    if (j < 0 || j >= S[side].length) return;
+    const list = [...S[side]];
+    [list[i], list[j]] = [list[j], list[i]];
+    S[side] = list;
+    selected = side + ":" + j;
+    touch();
+  }
+});
+
+// ── import ──────────────────────────────────────────────────────────────────
+function parseYamlStatusLine(text){
+  // accepte "statusLine:\n  key: …" ou les lignes brutes "  key = value" de `omp config list`
+  const out = {}; const lines = text.split("\n");
+  let curList = null, curMap = null;
+  for (let raw of lines){
+    const line = raw.replace(/\t/g,"  ");
+    let m;
+    if ((m = line.match(/^\s*statusLine\.([A-Za-z]+)\s*=\s*(.*)$/))){      // sortie de omp config list
+      const key = m[1], val = m[2].replace(/\s*\((array|record|boolean|enum).*$/,"").trim();
+      if (val.startsWith("[")) out[key] = JSON.parse(val);
+      else if (val.startsWith("{")) out[key] = JSON.parse(val);
+      else if (val === "true" || val === "false") out[key] = (val === "true");
+      else out[key] = val;
+      continue;
+    }
+    if ((m = line.match(/^\s*-\s+(\S+)\s*$/)) && curList){ curList.push(m[1]); continue; }
+    if ((m = line.match(/^\s*([A-Za-z]+):\s*$/))){
+      if (m[1] === "statusLine"){ curList = null; curMap = null; continue; }
+      if (["leftSegments","rightSegments"].includes(m[1])){ out[m[1]] = []; curList = out[m[1]]; curMap = null; continue; }
+      if (m[1] === "segmentOptions"){ out.segmentOptions = {}; curMap = "seg"; continue; }
+      if (curMap === "seg"){ out.segmentOptions[m[1]] = {}; curMap = m[1]; continue; }
+      if (curMap){ out.segmentOptions[curMap][m[1]] = {}; continue; }
+      continue;
+    }
+    if ((m = line.match(/^\s+([A-Za-z]+):\s+(.+?)\s*$/))){
+      const [,k,v0] = m; const v = v0.startsWith('"') ? JSON.parse(v0) : (v0 === "true" ? true : v0 === "false" ? false : v0);
+      if (curMap === "seg"){ out.segmentOptions[k] = {}; curMap = k; }
+      else if (curMap && typeof out.segmentOptions[curMap] === "object"){
+        const [ok, ov] = [k, v0 === "true" ? true : v0 === "false" ? false : (isNaN(+v0) ? v0 : +v0)];
+        out.segmentOptions[curMap][ok] = ov;
+      } else if (curList === null){ out[k] = Array.isArray(v) ? v : v; }
+      continue;
+    }
+  }
+  return out;
+}
+function applyImport(text){
+  const err = document.getElementById("importErr");
+  let data;
+  try { data = JSON.parse(text); }
+  catch { data = parseYamlStatusLine(text); }
+  if (!data || (!data.leftSegments && !data.rightSegments && !data.preset && !data.left && !data.right)){
+    err.textContent = "rien d'exploitable trouvé dans le texte"; return;
+  }
+  err.textContent = "";
+  const left = data.leftSegments || data.left || S.left;
+  const right = data.rightSegments || data.right || S.right;
+  const unknown = [...left, ...right].filter(id=>!SEGLIST.includes(id));
+  S = {
+    preset: data.preset ?? S.preset,
+    separator: data.separator ?? S.separator,
+    contextLine: data.contextLine ?? S.contextLine,
+    sessionAccent: data.sessionAccent ?? S.sessionAccent,
+    transparent: data.transparent ?? S.transparent,
+    showHookStatus: data.showHookStatus ?? S.showHookStatus,
+    left, right,
+    opts: data.segmentOptions ?? data.opts ?? S.opts
+  };
+  if (unknown.length) err.textContent = "⚠️ segments inconnus (ignorés par OMP) : " + unknown.join(", ");
+  selected = null; save(); syncControls(); renderAll();
+}
+
+// ── thème (auto | clair | sombre) ───────────────────────────────────────────
+const THEME_KEY = "omp-slc-theme";
+const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
+function themePref(){ return localStorage.getItem(THEME_KEY) || "auto"; }
+function applyTheme(){
+  const pref = themePref();
+  const resolved = pref === "auto" ? (darkMedia.matches ? "dark" : "light") : pref;
+  document.documentElement.dataset.theme = resolved;
+  document.querySelectorAll("#themeSwitch button")
+    .forEach(b => b.classList.toggle("active", b.dataset.theme === pref));
+  updateBadge();
+}
+function updateBadge(){
+  const b = window.OMP_BUILD || {};
+  const build = document.getElementById("ompBuild");
+  build.textContent = `omp ${b.version || "?"} — segments, options, aperçu, export`;
+  build.title = b.version
+    ? `Glyphes et séparateurs extraits d'omp ${b.version} (${b.source}) le ${b.extractedAt}`
+      + `${b.binary ? ` — ${b.binary}` : ""}\nRégénérer après une mise à jour : python3 extract-symbols.py`
+    : "Version d'OMP inconnue : régénérer symbols.js (python3 extract-symbols.py)";
+  document.getElementById("symBadge").textContent =
+    `symbols: ${symbols} · thème: ${document.documentElement.dataset.theme}`;
+  const vb = document.getElementById("versionBadge");
+  vb.textContent = "v" + APP_VERSION;
+  vb.title = `OMP Status Line Creator v${APP_VERSION} — VERSION du hub (vérifier avec bump.py --check)`;
+}
+darkMedia.addEventListener("change", applyTheme);
+
+// ── contrôles ───────────────────────────────────────────────────────────────
+function syncControls(){
+  document.getElementById("separator").value = S.separator;
+  document.getElementById("contextLine").value = S.contextLine;
+  document.getElementById("sessionAccent").checked = !!S.sessionAccent;
+  document.getElementById("transparent").checked = !!S.transparent;
+  document.getElementById("showHookStatus").checked = !!S.showHookStatus;
+}
+function setOpt(key, val){
+  const [id,k] = key.split(":");
+  S.opts[id] = Object.assign({}, optsFor(id), {[k]: val});
+}
+function renderAll(){ renderCatalog(); renderLists(); renderOptions(); renderPreview(); renderExport(); renderPresets(); }
+
+// toute retouche de liste/option rend le preset custom : hors custom, OMP ignore
+// leftSegments/rightSegments/segmentOptions du fichier (vérifié dans component.ts).
+function touch(){ if (S.preset !== "custom") S.preset = "custom"; save(); renderAll(); }
+
+// ── drag & drop ─────────────────────────────────────────────────────────────
+// Un placeholder pointillé montre en permanence où la tuile va atterrir ;
+// l'index d'insertion est déduit de la position du placeholder dans la colonne.
+let drag = null;
+let slot = null;
+function slotEl(){
+  if (!slot){ slot = document.createElement("div"); slot.className = "slot"; slot.textContent = "déposer ici"; }
+  return slot;
+}
+function placeSlot(container, before /* element | null = fin de liste */){
+  const s = slotEl();
+  container.insertBefore(s, before);
+  container.classList.add("over");
+}
+function clearSlot(){
+  slot?.remove();
+  document.querySelectorAll(".drop.over").forEach(d => d.classList.remove("over"));
+}
+function slotIndex(container){
+  const kids = [...container.children];
+  const at = kids.indexOf(slotEl());
+  const upto = at < 0 ? kids : kids.slice(0, at);          // slot absent = dépôt en fin de liste
+  return upto.filter(c => c.classList.contains("seg")).length;
+}
+function performDrop(to){
+  const from = drag.side, fromIdx = drag.idx;
+  let at = slotIndex(document.getElementById(to));
+  const [moved] = S[from].splice(fromIdx, 1);
+  if (from === to && fromIdx < at) at -= 1;      // la source quitte la même liste avant la cible
+  const list = S[to];
+  S[to] = [...list.slice(0, at), moved, ...list.slice(at)];
+  drag = null; clearSlot(); touch();
+}
+function wireDnD(){
+  document.querySelectorAll(".drop .seg[draggable]").forEach(el=>{
+    el.ondragstart = e => {
+      drag = {side: el.dataset.side, idx: +el.dataset.idx};
+      el.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      if (e.dataTransfer.setData) e.dataTransfer.setData("text/plain", el.dataset.side + ":" + el.dataset.idx);
+    };
+    el.ondragend = () => { el.classList.remove("dragging"); drag = null; clearSlot(); };
+    el.ondragover = e => {
+      e.preventDefault(); e.stopPropagation();
+      const r = el.getBoundingClientRect();
+      const before = (e.clientY - r.top) < r.height / 2;
+      placeSlot(el.parentElement, before ? el : el.nextElementSibling);
+    };
+    el.ondrop = e => { e.preventDefault(); e.stopPropagation(); if (drag) performDrop(el.dataset.side); };
+  });
+  document.querySelectorAll(".drop").forEach(d=>{
+    d.ondragover = e => {
+      e.preventDefault();
+      const segs = [...d.querySelectorAll(":scope > .seg")];
+      const last = segs[segs.length - 1];
+      if (!last || e.clientY > last.getBoundingClientRect().bottom) placeSlot(d, null);
+    };
+    d.ondragleave = e => { if (!d.contains(e.relatedTarget)) d.classList.remove("over"); };
+    d.ondrop = e => { e.preventDefault(); if (drag) performDrop(d.dataset.side); };
+  });
+}
+
+// ── événements ──────────────────────────────────────────────────────────────
+document.addEventListener("click", e=>{
+  const t = e.target.closest("button, .seg"); if (!t) return;
+  if (t.dataset.theme){ localStorage.setItem(THEME_KEY, t.dataset.theme); applyTheme(); return; }
+  if (t.dataset.del){ const [side,idx] = t.dataset.del.split(":"); S[side].splice(+idx,1); touch(); return; }
+  if (t.dataset.move){ const [side,idx] = t.dataset.move.split(":"); const [id] = S[side].splice(+idx,1);
+    const other = side === "left" ? "right" : "left"; S[other].push(id); touch(); return; }
+  if (t.dataset.add){ const id = t.dataset.add; const side = SEG[id]?.side || "right";
+    S[side].push(id); selected = side + ":" + (S[side].length-1); touch(); return; }
+  if (t.dataset.preset){
+    const key = t.dataset.preset;
+    const p = structuredClone(PRESETS[key]);
+    S.preset = p.ompPreset || key;                 // un preset local se sérialise en `custom`
+    S.separator = p.sep; S.left = p.left; S.right = p.right; S.opts = p.opts;
+    for (const k of ["contextLine","sessionAccent","transparent","showHookStatus"]) if (k in p) S[k] = p[k];
+    save(); syncControls(); renderAll(); return;
+  }
+  if (t.dataset.tab){ setTab(t.dataset.tab); openDrawer(); return; }
+  if (t.classList.contains("seg")){
+    selected = t.dataset.side ? t.dataset.side + ":" + t.dataset.idx : "add:" + t.dataset.add;
+    renderOptions(); renderLists(); return;
+  }
+});
+document.addEventListener("change", e=>{
+  const el = e.target;
+  if (el.dataset.opt){ const key = el.dataset.opt, [id,k] = key.split(":");
+    const spec = SEG[id].opts[k];
+    let v = spec.t === "bool" ? el.checked : (spec.t === "num" ? +el.value : el.value);
+    setOpt(key, v); touch(); return; }
+  const id = el.id;
+  if (["separator","contextLine"].includes(id)){ S[id] = el.value; save(); renderPreview(); renderExport(); }
+  if (["sessionAccent","transparent","showHookStatus"].includes(id)){ S[id] = el.checked; save(); renderExport(); }
+  if (id === "symPreset"){ symbols = el.value; updateBadge(); renderAll(); return; }
+  if (id === "samples"){ renderPreview(); return; }
+});
+document.getElementById("search").oninput = renderCatalog;
+document.getElementById("hideUsed").onchange = renderCatalog;
+document.getElementById("btnReset").onclick = ()=>{ S = structuredClone(MINE); selected = null; save(); syncControls(); renderAll(); };
+document.getElementById("btnMine").onclick = ()=>{
+  const text = [ "statusLine.preset = " + MINE.preset,
+    "statusLine.separator = " + MINE.separator,
+    "statusLine.contextLine = " + MINE.contextLine,
+    "statusLine.sessionAccent = " + MINE.sessionAccent,
+    "statusLine.transparent = " + MINE.transparent,
+    "statusLine.showHookStatus = " + MINE.showHookStatus,
+    "statusLine.leftSegments = " + JSON.stringify(MINE.left),
+    "statusLine.rightSegments = " + JSON.stringify(MINE.right),
+    "statusLine.segmentOptions = " + JSON.stringify(MINE.opts) ].join("\n");
+  document.getElementById("importText").value = text; applyImport(text);
+};
+document.getElementById("btnImport").onclick = ()=> applyImport(document.getElementById("importText").value);
+document.getElementById("btnCopy").onclick = async ()=>{
+  const btn = document.getElementById("btnCopy");
+  const text = document.getElementById("export").textContent;
+  let ok = true;
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      ok = document.execCommand("copy"); ta.remove();
+    } catch { ok = false; }
+  }
+  btn.textContent = ok ? "Copié ✓" : "Copie refusée — sélectionne le texte";
+  setTimeout(()=> btn.textContent = "Copier la config", 1500);
+};
+document.getElementById("btnDownload").onclick = ()=>{
+  const blob = new Blob([toYaml()], {type:"text/yaml"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "config.yml";
+  a.click(); URL.revokeObjectURL(a.href);
+};
+
+renderPresets(); syncControls(); applyTheme(); renderAll();
+</script>
+</body>
+</html>
