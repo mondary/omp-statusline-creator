@@ -4,7 +4,7 @@
 
 ![OMP Status Line Creator](icon.png)
 
-Composer la status line d'Oh My Pi à la souris, la prévisualiser, et exporter la config — sans éditer de YAML à l'aveugle.
+Composer la status line d'[Oh My Pi (OMP)](https://omp.sh/) à la souris, la prévisualiser, et exporter la config — sans éditer de YAML à l'aveugle.
 
 ![Aperçu du configurateur](store/screenshots/01-configurateur.png)
 

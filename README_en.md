@@ -4,7 +4,7 @@
 
 ![OMP Status Line Creator](icon.png)
 
-Compose Oh My Pi's status line with the mouse, preview it, and export the config — without editing YAML blind.
+Compose [Oh My Pi (OMP)](https://omp.sh/)'s status line with the mouse, preview it, and export the config — without editing YAML blind.
 
 ![Configurator preview](store/screenshots/01-configurateur.png)
 
