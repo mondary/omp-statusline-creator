@@ -15,10 +15,10 @@ import pathlib
 import re
 import sys
 
-TOOL_DIR = pathlib.Path(__file__).resolve().parent
-HUB = TOOL_DIR.parents[1]
+TOOL_DIR = pathlib.Path(__file__).resolve().parent.parent / "Web"
+HUB = TOOL_DIR.parent
 HUB_VERSION = HUB / "VERSION"
-READMES = (HUB / "README.md", HUB / "README_en.md")
+READMES = (TOOL_DIR / "README.md", TOOL_DIR / "README_en.md")
 INDEX = TOOL_DIR / "index.html"
 PATTERN = re.compile(r'(const APP_VERSION = ")([0-9]{4}\.[0-9]{2}\.[0-9]+)(";)')
 README_PATTERN = re.compile(r'(Version \*\*)([0-9]{4}\.[0-9]{2}\.[0-9]+)(\*\*)')

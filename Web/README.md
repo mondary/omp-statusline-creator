@@ -97,8 +97,7 @@ omp config set statusLine.preset custom         # ce que produit l'onglet « Com
 Aucun build : `index.html` + `symbols.js` sont servis tels quels (ouvrir le fichier suffit).
 `symbols.js` est **généré** — ne pas l'éditer à la main. La constante `APP_VERSION` d'`index.html`
 est écrite par `bump.py` (elle alimente le badge de version de l'en-tête) — ne pas l'éditer non
-plus. `favicon.svg` est la source de l'icône ; `icon.png`, `apple-touch-icon.png` et
-`favicon-32.png` en sont dérivés (rendu navigateur).
+plus. `icon.png` (copie de `icon2.png`) est l'icône de l'app ; une copie est maintenue à la racine du dépôt (convention). `icon2b.png` est la source haute résolution.
 
 ## 🧪 Installation
 
